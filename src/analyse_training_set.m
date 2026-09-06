@@ -1,65 +1,99 @@
-%% Analyse CeyMo Training Set — Class Distribution
-%  Counts how many images and instances of each road marking class
-%  are present in the training set. Used to understand the dataset
-%  before building the training pipeline.
+%% Analyse CeyMo Class Distribution
+% Counts both image-level occurrences and object instances for the six
+% road-marking classes used in this project. The official training and test
+% partitions are analysed separately so the test set remains untouched.
+
+clear; clc;
 
 paths = project_paths();
-bboxDir = fullfile(paths.train, 'bbox_annotations');
+targetClasses = {'SLA','BL','PC','JB','CL','DM'};
 
-assert(isfolder(bboxDir), ...
-    'Training annotations not found. Place CeyMo training data under data/ceymo/train/.');
-xmlFiles = dir(fullfile(bboxDir, '*.xml'));
-numImages = length(xmlFiles);
+trainAnnDir = fullfile(paths.train, 'bbox_annotations');
+testAnnDir  = fullfile(paths.test,  'bbox_annotations');
 
-% Initialise counters for target classes
-slaImages = 0;  blImages = 0;  bothImages = 0;  neitherImages = 0;
-slaInstances = 0;  blInstances = 0;
+assert(isfolder(trainAnnDir), ...
+    'Training annotations not found under data/ceymo/train/bbox_annotations/.');
+assert(isfolder(testAnnDir), ...
+    'Test annotations not found under data/ceymo/test/bbox_annotations/.');
 
-% Track all classes across the dataset
-allClasses = {};
+%% Count training and test data
+trainStats = countClasses(trainAnnDir, targetClasses);
+testStats  = countClasses(testAnnDir, targetClasses);
 
-for i = 1:numImages
-    xmlPath = fullfile(bboxDir, xmlFiles(i).name);
-    doc = xmlread(xmlPath);
+%% Build summary table
+className = string(targetClasses(:));
+trainImages    = trainStats.imageCount(:);
+testImages     = testStats.imageCount(:);
+totalImages    = trainImages + testImages;
+trainInstances = trainStats.instanceCount(:);
+testInstances  = testStats.instanceCount(:);
+totalInstances = trainInstances + testInstances;
+
+summaryTable = table(className, trainImages, testImages, totalImages, ...
+    trainInstances, testInstances, totalInstances, ...
+    'VariableNames', {'Class','TrainImages','TestImages','TotalImages', ...
+    'TrainInstances','TestInstances','TotalInstances'});
+
+disp('Six-class CeyMo distribution:');
+disp(summaryTable);
+
+fprintf('\nTraining images analysed: %d\n', trainStats.numImages);
+fprintf('Test images analysed:     %d\n', testStats.numImages);
+
+%% Class imbalance relative to the smallest training class
+nonzeroCounts = trainInstances(trainInstances > 0);
+if ~isempty(nonzeroCounts)
+    smallestCount = min(nonzeroCounts);
+    imbalanceRatio = trainInstances ./ smallestCount;
+    imbalanceTable = table(className, trainInstances, imbalanceRatio, ...
+        'VariableNames', {'Class','TrainInstances','RelativeToSmallestClass'});
+
+    disp('Training-set class imbalance:');
+    disp(imbalanceTable);
+end
+
+%% Save the analysis for later experiment tracking
+if ~isfolder(paths.results)
+    mkdir(paths.results);
+end
+
+writetable(summaryTable, fullfile(paths.results, 'dataset_class_distribution.csv'));
+fprintf('Saved results/dataset_class_distribution.csv\n');
+
+%% Plot training and test instance counts
+figure('Name', 'CeyMo Six-Class Distribution');
+bar(categorical(className), [trainInstances testInstances]);
+ylabel('Road-marking instances');
+xlabel('Class');
+legend('Training set', 'Test set', 'Location', 'best');
+title('CeyMo Target-Class Distribution');
+grid on;
+
+%% Local function
+function stats = countClasses(annotationDir, targetClasses)
+xmlFiles = dir(fullfile(annotationDir, '*.xml'));
+numClasses = numel(targetClasses);
+
+stats.numImages = numel(xmlFiles);
+stats.imageCount = zeros(numClasses, 1);
+stats.instanceCount = zeros(numClasses, 1);
+
+for i = 1:numel(xmlFiles)
+    doc = xmlread(fullfile(annotationDir, xmlFiles(i).name));
     objects = doc.getElementsByTagName('object');
-
-    hasSLA = false;
-    hasBL  = false;
+    presentInImage = false(numClasses, 1);
 
     for j = 0:objects.getLength()-1
         obj = objects.item(j);
-        name = char(obj.getElementsByTagName('name').item(0).getTextContent());
-        allClasses{end+1} = name;
+        name = strtrim(char(obj.getElementsByTagName('name').item(0).getTextContent()));
 
-        if strcmp(name, 'SLA')
-            hasSLA = true;
-            slaInstances = slaInstances + 1;
-        elseif strcmp(name, 'BL')
-            hasBL = true;
-            blInstances = blInstances + 1;
+        classIdx = find(strcmp(targetClasses, name), 1);
+        if ~isempty(classIdx)
+            stats.instanceCount(classIdx) = stats.instanceCount(classIdx) + 1;
+            presentInImage(classIdx) = true;
         end
     end
 
-    if hasSLA,              slaImages = slaImages + 1;       end
-    if hasBL,               blImages = blImages + 1;         end
-    if hasSLA && hasBL,     bothImages = bothImages + 1;     end
-    if ~hasSLA && ~hasBL,   neitherImages = neitherImages + 1; end
+    stats.imageCount = stats.imageCount + presentInImage;
 end
-
-% Display target class statistics
-fprintf('Total images:              %d\n', numImages);
-fprintf('Images with SLA:           %d\n', slaImages);
-fprintf('Images with BL:            %d\n', blImages);
-fprintf('Images with both:          %d\n', bothImages);
-fprintf('Images with neither:       %d\n', neitherImages);
-fprintf('Total SLA instances:       %d\n', slaInstances);
-fprintf('Total BL instances:        %d\n', blInstances);
-fprintf('Positive images (SLA|BL):  %d\n', slaImages + blImages - bothImages);
-
-% Display full class distribution
-fprintf('\nAll classes in training set:\n');
-uniqueClasses = unique(allClasses);
-for k = 1:length(uniqueClasses)
-    count = sum(strcmp(allClasses, uniqueClasses{k}));
-    fprintf('  %-5s: %d instances\n', uniqueClasses{k}, count);
 end
