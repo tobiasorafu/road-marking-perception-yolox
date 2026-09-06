@@ -117,63 +117,14 @@ The augmented model applies random:
 
 Horizontal flipping is deliberately excluded because SLA is direction-dependent. Flipping a straight-left arrow would make it resemble a straight-right arrow while leaving the original label unchanged.
 
-## Current Development Direction
-
-The next stage of the project focuses on improving the detector rather than simply retraining the same configuration. Planned changes include:
-
-- increasing the quantity and diversity of training images;
-- increasing input resolution to **416 x 416**;
-- expanding the hard-negative set for visually similar arrows;
-- selecting operating confidence thresholds using validation data;
-- extending the detector to six road-marking classes: **SLA, BL, PC, JB, CL and DM**;
-- evaluating performance across different road and lighting conditions;
-- developing a road-video perception demonstration with inference-time measurements.
-
-A later extension will investigate how perception outputs can be connected to supervisory logic and control-system models in MATLAB/Simulink.
-
-## Project Contents
-
-- `setup_project.m` - adds the source folder to the MATLAB path.
-- `src/project_paths.m` - defines repository-relative dataset, model and result paths.
-- `src/analyse_training_set.m` - analyses SLA, BL and overall class distribution in the CeyMo training set.
-- `src/prepare_dataset.m` - parses annotations, selects positives/hard negatives and builds training/validation datastores.
-- `src/train_detector.m` - trains the two-class YOLOX-tiny detector.
-- `src/augment_data.m` - appearance-based augmentation function.
-- `src/train_augmented_detector.m` - trains the detector with stochastic augmentation.
-- `src/evaluate_detector.m` - evaluates the trained detector on the official CeyMo test set.
-- `src/demo_external_images.m` - runs qualitative inference on external road images.
-- `src/visualize_video_detections.m` - visualises previously generated video detection frames.
-
 ## Running the Project
 
-1. Clone or download this repository and open it in MATLAB.
-2. Run `setup_project.m`.
-3. Download the CeyMo dataset from the original project repository.
-4. Arrange the dataset as:
-
-```text
-data/
-└── ceymo/
-    ├── train/
-    │   ├── images/
-    │   └── bbox_annotations/
-    └── test/
-        ├── images/
-        └── bbox_annotations/
-```
-
-5. Run `analyse_training_set.m` to inspect the training distribution.
-6. Run `prepare_dataset.m` to build the training and validation datastores.
-7. Run `train_detector.m` or `train_augmented_detector.m`.
-8. Run `evaluate_detector.m` to evaluate the saved baseline detector.
+1. Clone the repository and open it in MATLAB.
+2. Download the CeyMo dataset from the original project repository and place it under `data/ceymo/` using the expected `train` and `test` image/annotation folders.
+3. Run `setup_project.m`.
+4. Run the scripts in `src/` for dataset preparation, training and evaluation.
 
 The dataset and generated `.mat` model files are intentionally excluded from version control.
-
-## Contributors
-
-- Tobias Orafu
-- Emediong Moffat
-- Kofoworola Oyeniyi
 
 ## Dataset and Attribution
 
