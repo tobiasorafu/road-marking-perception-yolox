@@ -1,0 +1,15 @@
+# CeyMo and external datasets
+data/
+
+# Trained MATLAB models and generated binary data
+models/
+*.mat
+
+# MATLAB temporary files
+*.asv
+*.autosave
+*.slxc
+
+# OS/editor files
+.DS_Store
+Thumbs.db
